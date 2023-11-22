@@ -1,0 +1,137 @@
+import base64
+import os
+from cryptography.hazmat.primitives.asymmetric import ec
+from cryptography.hazmat.primitives import serialization, hashes, ciphers
+from cryptography.hazmat.primitives.kdf.hkdf import HKDF
+from cryptography.hazmat.backends import default_backend
+
+def generar_par_claves_ecdh():
+    """Genera un par de claves ECDH usando la curva P-256."""
+    clave_privada = ec.generate_private_key(ec.SECP256R1())
+    clave_publica = clave_privada.public_key()
+    return clave_privada, clave_publica
+
+def serializar_claves(clave_publica, clave_privada, nom_clav):
+    """Serializa la clave pública y privada al formato PEM."""
+    with open(f"clave_privada_P-256_{nom_clav}.pem", "wb") as f:
+            f.write(clave_privada.private_bytes(encoding=serialization.Encoding.PEM, format=serialization.PrivateFormat.PKCS8, encryption_algorithm=serialization.NoEncryption()))
+        
+    with open(f"clave_pública_P-256_{nom_clav}.pem", "wb") as f:
+        f.write(clave_publica.public_bytes(encoding=serialization.Encoding.PEM,format=serialization.PublicFormat.SubjectPublicKeyInfo))
+
+def deserializar_clave(datos_pem, sel):
+    """Deserializa la clave pública o privada en formato PEM."""
+    if(sel):
+        with open(datos_pem, "rb") as archivo:
+            clave = serialization.load_pem_private_key(archivo.read(),password=None)
+    else:
+        with open(datos_pem, "rb") as archivo:
+            clave = serialization.load_pem_public_key(archivo.read())
+
+    return clave
+
+def calcular_secreto_compartido(clave_privada, clave_publica_otra_entidad):
+    """Calcula el secreto compartido usando la clave privada propia y la clave pública de la otra entidad."""
+    secreto_compartido = clave_privada.exchange(ec.ECDH(), clave_publica_otra_entidad)
+    return secreto_compartido
+
+def derivar_clave_aes(secreto_compartido, longitud_clave=32):
+    """Deriva una clave AES a partir de un secreto compartido usando HKDF."""
+    derivador = HKDF(
+        algorithm=hashes.SHA256(),
+        length=longitud_clave,
+        salt=None,
+        info=b"clave derivada para AES",
+    )
+    clave_aes = derivador.derive(secreto_compartido)
+
+    clave_aes = base64.b64encode(clave_aes)
+    
+    with open(f"secreto_aes_ABA.pem", "wb") as f:
+            f.write(clave_aes)
+
+def cifrar_archivo_ctr(ruta_archivo, clave_aes):
+    """Cifra un archivo usando AES-CTR."""
+    # Generar un nonce (número usado una sola vez) para AES-CTR
+    nonce = os.urandom(16)
+
+    with open(clave_aes, "rb") as archivo:
+        clave_aes = base64.b64decode(archivo.read())
+
+    cifrador = ciphers.Cipher(ciphers.algorithms.AES(clave_aes), ciphers.modes.CTR(nonce), backend=default_backend()).encryptor()
+
+    with open(ruta_archivo, 'rb') as f:
+        contenido = f.read()
+
+    contenido_cifrado = cifrador.update(contenido) + cifrador.finalize()
+
+    # Guardar el nonce junto con el contenido cifrado para el descifrado posterior
+    with open(ruta_archivo + ".cifrado_ctr", 'wb') as f:
+        f.write(base64.b64encode(nonce + contenido_cifrado))
+
+def descifrar_archivo_ctr(ruta_archivo_cifrado, clave_aes):
+    """Descifra un archivo cifrado usando AES-CTR."""
+    with open(clave_aes, "rb") as archivo:
+        clave_aes = base64.b64decode(archivo.read())
+
+    with open(ruta_archivo_cifrado, 'rb') as f:
+        # Leer el nonce y el contenido cifrado
+        archivo = base64.b64decode(f.read())
+
+        #nonce = archivo(16)
+        nonce = archivo[:16]
+        contenido_cifrado = archivo[16:]
+
+    descifrador = ciphers.Cipher(ciphers.algorithms.AES(clave_aes), ciphers.modes.CTR(nonce), backend=default_backend()).decryptor()
+    contenido = descifrador.update(contenido_cifrado) + descifrador.finalize()
+
+    # Determinar el nombre del archivo descifrado
+    nombre_base = os.path.basename(ruta_archivo_cifrado).replace(".cifrado_ctr", "")
+    ruta_descifrado = os.path.join(os.path.dirname(ruta_archivo_cifrado), nombre_base.rsplit('.', 1)[0] + "_descifrado_ctr." + nombre_base.rsplit('.', 1)[1])
+
+    # Guardar el contenido descifrado
+    with open(ruta_descifrado, 'wb') as f:
+        f.write(contenido)
+
+def cifrar_archivo_gcm(ruta_archivo, clave_aes):
+    """Cifra un archivo usando AES-GCM."""
+    # Generar un nonce (número usado una sola vez) para AES-GCM
+    nonce = os.urandom(12)
+
+    with open(clave_aes, "rb") as archivo:
+        clave_aes = base64.b64decode(archivo.read())
+
+    cifrador = ciphers.Cipher(ciphers.algorithms.AES(clave_aes), ciphers.modes.GCM(nonce), backend=default_backend()).encryptor()
+
+    with open(ruta_archivo, 'rb') as f:
+        contenido = f.read()
+
+    contenido_cifrado = cifrador.update(contenido) + cifrador.finalize()
+
+    # Guardar el nonce, el tag de autenticación y el contenido cifrado
+    with open(ruta_archivo + ".cifrado_gcm", 'wb') as f:
+        f.write(base64.b64encode(nonce + contenido_cifrado + cifrador.tag))
+
+def descifrar_archivo_gcm(ruta_archivo_cifrado, clave_aes):
+    """Descifra un archivo cifrado usando AES-GCM."""
+    with open(clave_aes, "rb") as archivo:
+        clave_aes = base64.b64decode(archivo.read())
+
+    with open(ruta_archivo_cifrado, 'rb') as f:
+        # Leer el nonce, el tag de autenticación y el contenido cifrado
+        archivo = base64.b64decode(f.read())
+
+        nonce = archivo[:12]
+        contenido_cifrado = archivo[12:-16]
+        tag = archivo[-16:]
+
+    descifrador = ciphers.Cipher(ciphers.algorithms.AES(clave_aes), ciphers.modes.GCM(nonce, tag), backend=default_backend()).decryptor()
+    contenido = descifrador.update(contenido_cifrado) + descifrador.finalize()
+
+    # Determinar el nombre del archivo descifrado
+    nombre_base = os.path.basename(ruta_archivo_cifrado).replace(".cifrado_gcm", "")
+    ruta_descifrado = os.path.join(os.path.dirname(ruta_archivo_cifrado), nombre_base.rsplit('.', 1)[0] + "_descifrado_gcm." + nombre_base.rsplit('.', 1)[1])
+
+    # Guardar el contenido descifrado
+    with open(ruta_descifrado, 'wb') as f:
+        f.write(contenido)
