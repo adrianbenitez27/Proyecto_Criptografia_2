@@ -8,21 +8,28 @@ ruta_secreto_aes_cif = ""
 ruta_secreto_aes_des = ""
 ruta_documento_cif = ""
 ruta_documento_des = ""
+ruta_llave_privada_firma = ""
+ruta_documento_firma = ""
 
 def reiniciar_rutas():
-    global ruta_llave_privada, ruta_llave_publica, ruta_secreto_aes_cif, ruta_secreto_aes_des, ruta_documento_cif, ruta_documento_des
+    global ruta_llave_privada, ruta_llave_publica, ruta_secreto_aes_cif, ruta_secreto_aes_des
+    global ruta_documento_cif, ruta_documento_des, ruta_llave_privada_firma, ruta_documento_firma 
     ruta_llave_privada = ""
     ruta_llave_publica = ""
     ruta_secreto_aes_cif = ""
     ruta_secreto_aes_des = ""
     ruta_documento_cif = ""
     ruta_documento_des = ""
+    ruta_llave_privada_firma = ""
+    ruta_documento_firma = ""
     etiqueta_llave_privada.config(text="")
     etiqueta_llave_publica.config(text="")
     etiqueta_secreto_aes_cif.config(text="")
     etiqueta_secreto_aes_des.config(text="")
     etiqueta_documento_cif.config(text="")
     etiqueta_documento_des.config(text="")
+    etiqueta_llave_privada_firma.config(text="")
+    etiqueta_documento_firma.config(text="")
 
 def seleccionar_llave_privada():
     global ruta_llave_privada
@@ -53,6 +60,16 @@ def seleccionar_documento_des():
     global ruta_documento_des
     ruta_documento_des = filedialog.askopenfilename(title="Seleccione un archivo a descifrar")
     etiqueta_documento_des.config(text=ruta_documento_des)
+
+def seleccionar_llave_privada_firma():
+    global ruta_llave_privada_firma
+    ruta_llave_privada_firma = filedialog.askopenfilename(title="Seleccione una clave privada")
+    etiqueta_llave_privada_firma.config(text=ruta_llave_privada_firma)
+
+def seleccionar_documento_firma():
+    global ruta_documento_firma
+    ruta_documento_firma = filedialog.askopenfilename(title="Seleccione un archivo a firmar")
+    etiqueta_documento_firma.config(text=ruta_documento_firma)
 
 def generar_llaves():
     clave_privada_A, clave_publica_A = procesos.generar_par_claves_ecdh()
@@ -85,8 +102,14 @@ def descifra():
 
     messagebox.showinfo("Éxito", "Descifrado correcto")
 
+def firma():
+    procesos.firmar_documento(ruta_documento_firma, ruta_llave_privada_firma)
+    reiniciar_rutas()
+
+    messagebox.showinfo("Éxito", "Firmado correcto")
+
 root = tk.Tk()
-root.title("Interfaz para retrato digital")
+root.title("Interfaz del cliente para retrato digital")
 
 # Marco para generar llaves
 marco_generar_llaves = tk.LabelFrame(root, text="Generar Llaves", padx=5, pady=5)
@@ -99,12 +122,12 @@ boton_generar.pack(pady=10)
 marco_calcular_secreto = tk.LabelFrame(root, text="Calcular secreto AES", padx=5, pady=5)
 marco_calcular_secreto.pack(padx=10, pady=10, fill="both", expand="yes", side="left")
 
-btn_seleccionar_llave_publica = tk.Button(marco_calcular_secreto, text="Seleccionar Clave Pública de B", command=seleccionar_llave_publica)
+btn_seleccionar_llave_publica = tk.Button(marco_calcular_secreto, text="Seleccionar Clave Pública del Pintor", command=seleccionar_llave_publica)
 btn_seleccionar_llave_publica.pack(pady=1)
 etiqueta_llave_publica = tk.Label(marco_calcular_secreto, text="")
 etiqueta_llave_publica.pack(pady=1)
 
-btn_seleccionar_llave_privada = tk.Button(marco_calcular_secreto, text="Seleccionar Clave Privada de A", command=seleccionar_llave_privada)
+btn_seleccionar_llave_privada = tk.Button(marco_calcular_secreto, text="Seleccionar su Clave Privada", command=seleccionar_llave_privada)
 btn_seleccionar_llave_privada.pack(pady=1)
 etiqueta_llave_privada = tk.Label(marco_calcular_secreto, text="")
 etiqueta_llave_privada.pack(pady=1)
@@ -144,23 +167,23 @@ etiqueta_documento_des = tk.Label(marco_descifrar, text="")
 etiqueta_documento_des.pack(pady=1)
 
 boton_descifrar = tk.Button(marco_descifrar, text="Descifrar Archivo", command=descifra)
-boton_descifrar.pack(pady=1)
+boton_descifrar.pack(pady=10)
 
 # Marco para firmar con ECDSA
 marco_firmar = tk.LabelFrame(root, text="Firmar Solicitud", padx=5, pady=5)
 marco_firmar.pack(padx=10, pady=10, fill="both", expand="yes")
 
-btn_seleccionar_secreto_aes_des = tk.Button(marco_firmar, text="Seleccionar Secreto AES", command=seleccionar_sereto_aes_des)
-btn_seleccionar_secreto_aes_des.pack(pady=1)
-etiqueta_secreto_aes_des = tk.Label(marco_firmar, text="")
-etiqueta_secreto_aes_des.pack(pady=1)
+btn_seleccionar_llave_privada_firma = tk.Button(marco_firmar, text="Seleccionar su Clave Privada", command=seleccionar_llave_privada_firma)
+btn_seleccionar_llave_privada_firma.pack(pady=1)
+etiqueta_llave_privada_firma = tk.Label(marco_firmar, text="")
+etiqueta_llave_privada_firma.pack(pady=1)
 
-btn_seleccionar_documento_des = tk.Button(marco_firmar, text="Seleccionar Documento", command=seleccionar_documento_des)
-btn_seleccionar_documento_des.pack(pady=1)
-etiqueta_documento_des = tk.Label(marco_firmar, text="")
-etiqueta_documento_des.pack(pady=1)
+btn_seleccionar_documento_firma = tk.Button(marco_firmar, text="Seleccionar Documento", command=seleccionar_documento_firma)
+btn_seleccionar_documento_firma.pack(pady=1)
+etiqueta_documento_firma = tk.Label(marco_firmar, text="")
+etiqueta_documento_firma.pack(pady=1)
 
-boton_descifrar = tk.Button(marco_firmar, text="Firmar Documento", command=descifra)
-boton_descifrar.pack(pady=1)
+boton_firmar = tk.Button(marco_firmar, text="Firmar Documento", command=firma)
+boton_firmar.pack(pady=10)
 
 root.mainloop()

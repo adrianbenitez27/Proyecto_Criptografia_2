@@ -106,9 +106,6 @@ def firmar_documento(ruta_documento, clave_privada):
     with open(f"firma_{nombre_documento}.txt", "w") as archivo:
         archivo.write(base64.b64encode(firma).decode('utf-8'))
 
-    #reiniciar_rutas()
-    #messagebox.showinfo("Éxito", "Documento firmado")
-
 def verificar_firma(ruta_documento_firmado, ruta_documento, clave_publica):
     with open(clave_publica, "rb") as archivo:
         llave_publica = serialization.load_pem_public_key(archivo.read())
@@ -122,12 +119,8 @@ def verificar_firma(ruta_documento_firmado, ruta_documento, clave_publica):
     try:
         llave_publica.verify(firma, documento, ec.ECDSA(hashes.SHA256()))
         print("Éxito")
-        #messagebox.showinfo("Resultado", "La firma es válida.")
     except:
         print("Error")
-        #messagebox.showerror("Error", "La firma es inválida.")
-    
-    #reiniciar_rutas()
 
 #firmar_documento("documentos/prueba_1_(medicamentos).txt", "clave_privada_P-256_Adrian Benitez.pem")
-#verificar_firma("firma_prueba_1_(medicamentos).txt", "documentos/prueba_1_(medicamentos).txt", "clave_pública_P-256_Adrian Benitez.pem")
+#verificar_firma("firma_prueba_1_(medicamentos).txt", "documentos/prueba_1_(medicamentos).txt", "clave_publica_P-256_Sara.pem")
