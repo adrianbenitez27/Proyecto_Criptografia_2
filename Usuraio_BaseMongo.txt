@@ -1,0 +1,4 @@
+Usuario:base_Cripto
+Contraseña:rDY39el5cJgqhgPF
+
+mongodb+srv://base_Cripto:rDY39el5cJgqhgPF@cluster0.f9umqk5.mongodb.net/?retryWrites=true&w=majority
