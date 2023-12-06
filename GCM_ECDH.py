@@ -13,11 +13,14 @@ def generar_par_claves_ecdh():
 
 def serializar_claves(clave_publica, clave_privada, nom_clav):
     """Serializa la clave pública y privada al formato PEM."""
+    ruta_clave_privada = f"clave_privada_P-256_{nom_clav}.pem"
+    ruta_clave_publica = f"clave_publica_P-256_{nom_clav}.pem"
     with open(f"clave_privada_P-256_{nom_clav}.pem", "wb") as f:
             f.write(clave_privada.private_bytes(encoding=serialization.Encoding.PEM, format=serialization.PrivateFormat.PKCS8, encryption_algorithm=serialization.NoEncryption()))
         
     with open(f"clave_publica_P-256_{nom_clav}.pem", "wb") as f:
         f.write(clave_publica.public_bytes(encoding=serialization.Encoding.PEM,format=serialization.PublicFormat.SubjectPublicKeyInfo))
+    return ruta_clave_publica, ruta_clave_privada
 
 def deserializar_clave(datos_pem, sel):
     """Deserializa la clave pública o privada en formato PEM."""
@@ -47,7 +50,7 @@ def derivar_clave_aes(secreto_compartido, longitud_clave=32):
 
     clave_aes = base64.b64encode(clave_aes)
     
-    with open(f"secreto_aes_ABA.pem", "wb") as f:
+    with open(f"secreto_aes.pem", "wb") as f:
             f.write(clave_aes)
 
 def cifrar_archivo_gcm(ruta_archivo, clave_aes):
@@ -65,9 +68,14 @@ def cifrar_archivo_gcm(ruta_archivo, clave_aes):
 
     contenido_cifrado = cifrador.update(contenido) + cifrador.finalize()
 
+    # Ruta del archivo cifrado
+    ruta_archivo_cifrado = ruta_archivo + ".cifrado_gcm"
+
     # Guardar el nonce, el tag de autenticación y el contenido cifrado
-    with open(ruta_archivo + ".cifrado_gcm", 'wb') as f:
+    with open(ruta_archivo_cifrado, 'wb') as f:
         f.write(base64.b64encode(nonce + contenido_cifrado + cifrador.tag))
+    # Devolver la ruta del archivo cifrado
+    return ruta_archivo_cifrado
 
 def descifrar_archivo_gcm(ruta_archivo_cifrado, clave_aes):
     """Descifra un archivo cifrado usando AES-GCM."""
@@ -77,10 +85,9 @@ def descifrar_archivo_gcm(ruta_archivo_cifrado, clave_aes):
     with open(ruta_archivo_cifrado, 'rb') as f:
         # Leer el nonce, el tag de autenticación y el contenido cifrado
         archivo = base64.b64decode(f.read())
-
         nonce = archivo[:12]
-        contenido_cifrado = archivo[12:-16]
         tag = archivo[-16:]
+        contenido_cifrado = archivo[12:-16]
 
     descifrador = ciphers.Cipher(ciphers.algorithms.AES(clave_aes), ciphers.modes.GCM(nonce, tag), backend=default_backend()).decryptor()
     contenido = descifrador.update(contenido_cifrado) + descifrador.finalize()
@@ -95,16 +102,19 @@ def descifrar_archivo_gcm(ruta_archivo_cifrado, clave_aes):
 
 def firmar_documento(ruta_documento, clave_privada):
     with open(clave_privada, "rb") as archivo:
-        llave_privada = serialization.load_pem_private_key(archivo.read(),password=None)
-    
+        llave_privada = serialization.load_pem_private_key(archivo.read(), password=None)
+
     with open(ruta_documento, "rb") as archivo:
         documento = archivo.read()
-    
+
     firma = llave_privada.sign(documento, ec.ECDSA(hashes.SHA256()))
-    
+
     nombre_documento = os.path.basename(ruta_documento).split('.')[0]
-    with open(f"firma_{nombre_documento}.txt", "w") as archivo:
+    ruta_firma = f"firma_{nombre_documento}.txt"
+    with open(ruta_firma, "w") as archivo:
         archivo.write(base64.b64encode(firma).decode('utf-8'))
+
+    return ruta_firma
 
 def verificar_firma(ruta_documento_firmado, ruta_documento, clave_publica):
     with open(clave_publica, "rb") as archivo:
@@ -118,9 +128,9 @@ def verificar_firma(ruta_documento_firmado, ruta_documento, clave_publica):
     
     try:
         llave_publica.verify(firma, documento, ec.ECDSA(hashes.SHA256()))
-        print("Éxito")
-    except:
-        print("Error")
+        return True  # Verificación exitosa
+    except Exception as e:
+        return False  # Verificación fallida
 
 #firmar_documento("documentos/prueba_1_(medicamentos).txt", "clave_privada_P-256_Adrian Benitez.pem")
 #verificar_firma("firma_prueba_1_(medicamentos).txt", "documentos/prueba_1_(medicamentos).txt", "clave_publica_P-256_Sara.pem")
